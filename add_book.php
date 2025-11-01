@@ -1,3 +1,83 @@
+<?php
+require_once '../includes/config.php';
+require_once '../includes/functions.php';
+
+// Require staff login
+require_staff_login();
+
+$errors = [];
+$success_message = '';
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Sanitize input
+    $title = sanitize_input($_POST['title']);
+    $author = sanitize_input($_POST['author']);
+    $price = sanitize_input($_POST['price']);
+    $stock_quantity = sanitize_input($_POST['stock_quantity']);
+    $category = sanitize_input($_POST['category']);
+    $isbn = sanitize_input($_POST['isbn']);
+    $description = sanitize_input($_POST['description']);
+    
+
+    
+    // Validation
+    $errors[] = validate_required($title, 'Tên sách');
+    $errors[] = validate_required($author, 'Tác giả');
+    $errors[] = validate_required($category, 'Thể loại');
+    $errors[] = validate_required($isbn, 'ISBN');
+    
+    $errors[] = validate_price($price);
+    $errors[] = validate_stock($stock_quantity);
+    $errors[] = validate_isbn($isbn);
+    
+    // Handle image upload first (before other validations)
+    $upload_result = handle_book_image_upload('image');
+    if (!$upload_result['success']) {
+        $errors[] = $upload_result['error'];
+    }
+    $image_path = $upload_result['path'] ?? null;
+    
+    // Check for duplicates
+    if (check_duplicate_isbn($isbn)) {
+        $errors[] = "ISBN này đã tồn tại trong hệ thống";
+    }
+    
+    if (check_duplicate_title($title)) {
+        $errors[] = "Tên sách này đã tồn tại trong hệ thống";
+    }
+    
+    // Remove null errors
+    $errors = array_filter($errors);
+    
+    // If no errors, insert the book
+    if (empty($errors)) {
+        
+    $stmt = $conn->prepare("INSERT INTO books (title, author, price, stock_quantity, category, isbn, description, image_url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // Types: s=title, s=author, d=price, i=stock_quantity, s=category, s=isbn, s=description, s=image_url, i=created_by
+    $stmt->bind_param("ssdissssi", $title, $author, $price, $stock_quantity, $category, $isbn, $description, $image_path, $_SESSION['user_id']);
+        
+        if ($stmt->execute()) {
+            $book_id = $conn->insert_id;
+            
+            // Log the action
+            $log_details = "Added new book: '$title' (ID: $book_id) - Author: $author, Price: $price, Stock: $stock_quantity, Category: $category, ISBN: $isbn";
+            log_staff_action($_SESSION['user_id'], 'ADD_BOOK', $log_details);
+            
+            $success_message = "Sách đã được thêm thành công!";
+            
+            // Clear form data  
+            $title = $author = $price = $stock_quantity = $category = $isbn = $description = '';
+            $image_path = '';
+        } else {
+            $errors[] = "Có lỗi xảy ra khi thêm sách. Vui lòng thử lại.";
+        }
+        
+        $stmt->close();
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
