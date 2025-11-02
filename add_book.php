@@ -174,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 <div class="action-buttons">
                     <button type="submit" class="btn btn-primary">Thêm sách</button>
+                    <button type="button" id="clear-btn" class="btn btn-warning">Làm Mới</button>
                     <a href="index.php" class="btn btn-secondary">Hủy</a>
                 </div>
             </form>
@@ -186,6 +187,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             let value = e.target.value.replace(/[^0-9]/g, '');
             if (value.length <= 13) {
                 e.target.value = value;
+            }
+        });
+
+        // Phải kiểm soát category cho người dùng nhập đúng với gợi ý, chỉ nhắc nhở, khi nào save thì mới không cho phép lưu bắt buộc nhập đúng với gợi ý
+        const validCategories = [
+            "Văn Học Cổ Điển", "Tiểu Thuyết", "Phi Tiểu Thuyết", "Khoa Học Viễn Tưởng",
+            "Trinh Thám", "Lãng Mạn", "Lập Trình", "Cơ Sở Dữ Liệu", "Kinh Doanh",
+            "Tự Lực", "Lịch Sử", "Tiểu Sử"
+        ];
+
+        // Kiểm tra thể loại hợp lệ
+        document.getElementById('category').addEventListener('input', function(e) {
+            const category = e.target.value;
+            if (!validCategories.includes(category)) {
+                // Nếu thể loại không hợp lệ, hiển thị thông báo
+                e.target.setCustomValidity('Vui lòng nhập thể loại sách hợp lệ!');
+            } else {
+                e.target.setCustomValidity('');
             }
         });
         
@@ -228,6 +247,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 e.preventDefault();
                 return;
             }
+        });
+
+        // Clear form fields when Clear button is clicked (does not submit)
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            const form = document.querySelector('form');
+            // Reset will clear text inputs, numbers, selects, textareas
+            form.reset();
+            // Clear file inputs explicitly for browsers that block form.reset on file inputs
+            form.querySelectorAll('input[type=file]').forEach(function(fi){ fi.value = ''; });
+            // Remove any custom validity messages
+            form.querySelectorAll('input, textarea').forEach(function(el){
+                if (typeof el.setCustomValidity === 'function') el.setCustomValidity('');
+                // Remove inline styles added by validation highlighting (if any)
+                el.style.borderColor = '';
+                el.style.backgroundColor = '';
+            });
+            // Focus the first input for convenience
+            const first = form.querySelector('input[type=text], input[type=number], textarea');
+            if (first) first.focus();
         });
     </script>
 </body>
