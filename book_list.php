@@ -61,7 +61,71 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $book_query->close();
 }
 // Hiệp end -->
+// Đức
+// Search and filter parameters
+$search = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
+$category_filter = isset($_GET['category']) ? sanitize_input($_GET['category']) : '';
+$status_filter = isset($_GET['status']) ? sanitize_input($_GET['status']) : 'active';
 
+// Pagination
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$records_per_page = 10;
+$offset = ($page - 1) * $records_per_page;
+
+// Build query
+$where_conditions = [];
+$params = [];
+$param_types = '';
+
+// Always include status filter
+$where_conditions[] = "status = ?";
+$params[] = $status_filter;
+$param_types .= 's';
+
+if (!empty($search)) {
+    $where_conditions[] = "(title LIKE ? OR author LIKE ? OR isbn LIKE ?)";
+    $search_param = "%$search%";
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $param_types .= 'sss';
+}
+
+if (!empty($category_filter)) {
+    $where_conditions[] = "category = ?";
+    $params[] = $category_filter;
+    $param_types .= 's';
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+// Count total records
+$count_query = "SELECT COUNT(*) as total FROM books $where_clause";
+$count_stmt = $conn->prepare($count_query);
+if (!empty($params)) {
+    $count_stmt->bind_param($param_types, ...$params);
+}
+$count_stmt->execute();
+$total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+$total_pages = ceil($total_records / $records_per_page);
+$count_stmt->close();
+
+// Get books
+$books_query = "SELECT * FROM books $where_clause ORDER BY created_at DESC LIMIT ? OFFSET ?";
+$books_params = array_merge($params, [$records_per_page, $offset]);
+$books_param_types = $param_types . 'ii';
+
+$books_stmt = $conn->prepare($books_query);
+$books_stmt->bind_param($books_param_types, ...$books_params);
+$books_stmt->execute();
+$books_result = $books_stmt->get_result();
+
+// Get categories for filter
+$categories_result = $conn->query("SELECT DISTINCT category FROM books WHERE status = 'active' ORDER BY category");
+
+// No mapping: display the raw stored category entered by user
+?>
+<!-- Đức end -->
 ?>
 
 <!DOCTYPE html>
